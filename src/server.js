@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import userRoutes from './routes/userRoutes.js';
 import notificationRoutes from './notifications.js'; // Make sure this file exists
 import volunteerHistoryRoutes from './volunteerHistory.js'; // Make sure this file exists
+import eventRoutes from './routes/eventRoutes.js';
 
 dotenv.config(); // Load environment variables
 
@@ -16,41 +17,23 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: 'http://localhost:3000', // Fixed the trailing slash here
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
 }));
 app.use(express.json());
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI, {
+mongoose.connect(mongoUri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
 .then(() => console.log('MongoDB connected'))
 .catch(err => console.error('MongoDB connection error:', err));
 
-// Example events data
-const events = [
-  {
-    id: 1,
-    title: 'Beach Cleanup Drive',
-    description: 'Join us for a community beach cleanup. Help keep our oceans clean!',
-  },
-  {
-    id: 2,
-    title: 'STEM Workshop for Kids',
-    description: 'Teach kids about the wonders of STEM in a fun and interactive way.',
-  },
-  {
-    id: 3,
-    title: 'Food Drive for Local Shelters',
-    description: 'Help us collect and distribute food to local shelters in need.',
-  },
-];
+// Remove hardcoded events
 
 // Event Routes
-app.get('/api/events', (req, res) => {
-  res.json(events);
-});
+app.use('/api/events', eventRoutes); // Corrected the route
 
 // Notification Routes
 app.use('/api/notifications', notificationRoutes);
