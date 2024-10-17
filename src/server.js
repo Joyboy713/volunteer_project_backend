@@ -19,6 +19,7 @@ app.use(cors({
   origin: 'http://localhost:3000',
 }));
 app.use(express.json());
+app.use('/uploads', express.static('uploads'));
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI, {
