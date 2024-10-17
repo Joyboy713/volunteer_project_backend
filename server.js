@@ -28,3 +28,25 @@ app.use('/api/profile', userProfileRoutes);
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });
+
+
+require('dotenv').config();
+const mongoose = require('mongoose');
+
+const uri = process.env.MONGODB_URI;
+
+if (!uri) {
+    console.error('MongoDB URI is not defined in the environment variables.');
+    process.exit(1); // Exit the application if URI is not provided
+}
+
+mongoose.connect(uri, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+})
+.then(() => {
+    console.log('MongoDB connected successfully');
+})
+.catch((error) => {
+    console.error('MongoDB connection error:', error);
+});
