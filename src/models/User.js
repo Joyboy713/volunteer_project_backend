@@ -7,6 +7,7 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   dob: { type: Date, required: true },
+  profilePicture: { type: String }, // Path or URL for the profile picture
   address: {
     streetAddress: { type: String, required: true },
     streetAddress2: { type: String },

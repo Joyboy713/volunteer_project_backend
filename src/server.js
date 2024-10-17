@@ -21,6 +21,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
 }));
 app.use(express.json());
+app.use('/uploads', express.static('uploads'));
 
 // Connect to MongoDB
 mongoose.connect(mongoUri, {
