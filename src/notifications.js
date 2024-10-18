@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { authMiddleware } from './Middleware/authmiddleware.js';  // Protect notifications
 
 const router = express.Router();
 
@@ -14,7 +15,7 @@ const __dirname = dirname(__filename);
 const notificationsFilePath = path.join(__dirname, '../data/notifications.json');
 
 // Route to get notifications
-router.get('/', (req, res) => {
+router.get('/',authMiddleware, (req, res) => {
   fs.readFile(notificationsFilePath, 'utf8', (err, data) => {
     if (err) {
       console.error('Error reading notifications file:', err);
