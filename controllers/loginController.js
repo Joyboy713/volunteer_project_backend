@@ -1,7 +1,7 @@
 // controllers/LoginController.js:
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const User = require('./src/models/User.js');  // Adjust path as necessary
+const User = require('../src/models/User.js');  // Adjust path as necessary
 
 exports.login = async (req, res) => {
   const { email, password } = req.body;
