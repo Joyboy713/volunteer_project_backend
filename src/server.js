@@ -3,9 +3,10 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import userRoutes from './routes/userRoutes.js';
-import notificationRoutes from './notifications.js'; // Make sure this file exists
-import volunteerHistoryRoutes from './volunteerHistory.js'; // Make sure this file exists
+import notificationRoutes from './notifications.js';
+import volunteerHistoryRoutes from './routes/volunteerHistory.js'; 
 import eventRoutes from './routes/eventRoutes.js';
+import volunteerMatchRoutes from './routes/volunteerMatch.js';
 
 dotenv.config(); // Load environment variables
 
@@ -34,7 +35,7 @@ mongoose.connect(mongoUri, {
 // Remove hardcoded events
 
 // Event Routes
-app.use('/api/events', eventRoutes); // Corrected the route
+app.use('/api/events', eventRoutes); 
 
 // Notification Routes
 app.use('/api/notifications', notificationRoutes);
@@ -44,6 +45,9 @@ app.use('/api/volunteerHistory', volunteerHistoryRoutes);
 
 // User Routes
 app.use('/api/users', userRoutes);
+
+// Volunteer Match
+app.use('/api/volunteerMatch', volunteerMatchRoutes);
 
 // Start the server
 app.listen(port, () => {
