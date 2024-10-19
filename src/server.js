@@ -6,6 +6,8 @@ import userRoutes from './routes/userRoutes.js';
 import notificationRoutes from './notifications.js'; // Make sure this file exists
 import volunteerHistoryRoutes from './volunteerHistory.js'; // Make sure this file exists
 import eventRoutes from './routes/eventRoutes.js';
+//import login from './routes/login.js';
+//import { route } from './routes/login.js';
 
 dotenv.config(); // Load environment variables
 
@@ -17,7 +19,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: 'http://localhost:5000', // Fixed the trailing slash here
+  origin: 'http://localhost:3000', // Fixed the trailing slash here
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
 }));
 app.use(express.json());
@@ -44,6 +46,9 @@ app.use('/api/volunteerHistory', volunteerHistoryRoutes);
 
 // User Routes
 app.use('/api/users', userRoutes);
+
+//Login
+app.use('/api/login', userRoutes);
 
 // Start the server
 app.listen(port, () => {
