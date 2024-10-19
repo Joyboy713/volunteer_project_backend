@@ -20,6 +20,7 @@ if (!fs.existsSync(uploadDir)) {
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, 'uploads/profilePictures');
+    cb(null, 'uploads/profilePictures');
   },
   filename: (req, file, cb) => {
     cb(null, `${req.user.id}-${Date.now()}-${file.originalname}`);
@@ -31,6 +32,7 @@ const upload = multer({ storage });
 // Route for getting the user profile (for logged-in users)
 router.get('/profile', authMiddleware, async (req, res) => {
   try {
+    const user = await User.findById(req.user.id).select('-password');
     const user = await User.findById(req.user.id).select('-password');
 
     if (!user) {
@@ -46,11 +48,16 @@ router.get('/profile', authMiddleware, async (req, res) => {
 
 // Route for updating the user profile, including profile picture
 router.post('/profile', authMiddleware, upload.single('profilePicture'), async (req, res) => {
+router.post('/profile', authMiddleware, upload.single('profilePicture'), async (req, res) => {
   const {
+    firstName,
+    lastName,
     firstName,
     lastName,
     skills,
     preferences,
+    startDate,
+    endDate,
     startDate,
     endDate,
   } = req.body;
@@ -67,9 +74,19 @@ router.post('/profile', authMiddleware, upload.single('profilePicture'), async (
     user.lastName = lastName || user.lastName;
     user.skills = skills ? JSON.parse(skills) : user.skills;
     user.preferences = preferences || user.preferences;
+    user.firstName = firstName || user.firstName;
+    user.lastName = lastName || user.lastName;
+    user.skills = skills ? JSON.parse(skills) : user.skills;
+    user.preferences = preferences || user.preferences;
     if (req.file) {
       user.profilePicture = `/uploads/profilePictures/${req.file.filename}`;
     }
+
+    // Update availability dates
+    user.availability = {
+      startDate: startDate || user.availability.startDate,
+      endDate: endDate || user.availability.endDate,
+    };
 
     // Update availability dates
     user.availability = {
