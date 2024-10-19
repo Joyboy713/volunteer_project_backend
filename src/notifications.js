@@ -12,7 +12,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Path to notifications JSON file
-const notificationsFilePath = path.join(__dirname, '../data/notifications.json');
+const notificationsFilePath = path.join(__dirname, './data/notifications.json');
 
 // Route to get notifications
 router.get('/',authMiddleware, (req, res) => {

@@ -31,22 +31,27 @@ export const createEvent = async (req, res) => {
 };
 
 
-// Update an event (optional)
+// Update an existing event
 export const updateEvent = async (req, res) => {
-  const { id } = req.params;
-  const { title, description, date, location } = req.body;
-
-  try {
-    const updatedEvent = await Event.findByIdAndUpdate(
-      id,
-      { title, description, date, location },
-      { new: true }
-    );
-    res.json(updatedEvent);
-  } catch (error) {
-    res.status(500).json({ message: 'Error updating event' });
-  }
-};
+    const { id } = req.params;
+    const { eventName, eventDescription, location, eventDate, urgency, requiredSkills } = req.body;
+  
+    try {
+      const updatedEvent = await Event.findByIdAndUpdate(
+        id,
+        { eventName, eventDescription, location, eventDate, urgency, requiredSkills },
+        { new: true } // Return the updated document
+      );
+      
+      if (!updatedEvent) {
+        return res.status(404).json({ message: 'Event not found' });
+      }
+  
+      res.json(updatedEvent); // Return the updated event
+    } catch (error) {
+      res.status(500).json({ message: 'Error updating event', error });
+    }
+  };  
 
 // Delete an event (optional)
 export const deleteEvent = async (req, res) => {

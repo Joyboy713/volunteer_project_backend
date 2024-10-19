@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
 
 const userSchema = new mongoose.Schema({
-  firstName: { type: String, required: true},
+  firstName: { type: String, required: true },
   lastName: { type: String, required: true },
   email: { type: String, required: true, unique: true,  },
   password: { type: String, required: true },
@@ -24,8 +24,14 @@ const userSchema = new mongoose.Schema({
   },
   shiftPreferences: {
     morning: { type: String },
-    afternoon: { type: String},
+    afternoon: { type: String },
     evening: { type: String },
+  },
+  skills: [{ type: String }], // Array of strings for user skills
+  preferences: { type: String }, // String for user preferences
+  availability: {
+    startDate: { type: Date }, // Start date of availability
+    endDate: { type: Date }, // End date of availability
   },
 }, { timestamps: true });
 
