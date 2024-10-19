@@ -86,4 +86,35 @@ router.post('/profile', authMiddleware, upload.single('profilePicture'), async (
   }
 });
 
+// Route for uploading a profile picture separately
+router.post('/profile/upload', authMiddleware, upload.single('profilePicture'), async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Update user profile picture URL/path
+    user.profilePicture = `/uploads/profilePictures/${req.file.filename}`;
+    await user.save();
+
+    res.json({ message: 'Profile picture uploaded successfully', user });
+  } catch (error) {
+    console.error('Error uploading profile picture:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.get('/', async (req, res) => {
+  try {
+    const users = await User.find(); // Fetch all users from MongoDB
+    res.status(200).json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
 export default router;
