@@ -3,10 +3,11 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import userRoutes from './routes/userRoutes.js';
-import notificationRoutes from './notifications.js';
+import notificationRoutes from './routes/notificationRoute.js'; // Example routes
 import volunteerHistoryRoutes from './routes/volunteerHistory.js'; 
 import eventRoutes from './routes/eventRoutes.js';
 import volunteerMatchRoutes from './routes/volunteerMatch.js';
+import login from './routes/login.js';
 
 dotenv.config(); // Load environment variables
 
@@ -16,11 +17,13 @@ const mongoUri = process.env.MONGO_URI;
 
 const app = express();
 
-// Middleware
+// Middleware to enable CORS, allowing your frontend to communicate with your backend
 app.use(cors({
-  origin: 'http://localhost:3000', // Fixed the trailing slash here
+  origin: 'http://localhost:3000', // The address of your React app
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
 }));
+
+// Middleware for parsing JSON bodies
 app.use(express.json());
 app.use('/uploads', express.static('uploads'));
 
@@ -29,10 +32,8 @@ mongoose.connect(mongoUri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
-.then(() => console.log('MongoDB connected'))
-.catch(err => console.error('MongoDB connection error:', err));
-
-// Remove hardcoded events
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.error('MongoDB connection error:', err));
 
 // Event Routes
 app.use('/api/events', eventRoutes); 
@@ -46,10 +47,13 @@ app.use('/api/volunteerHistory', volunteerHistoryRoutes);
 // User Routes
 app.use('/api/users', userRoutes);
 
-// Volunteer Match
+// Login Route
+app.use('/api/users/login', login);
+
+// Volunteer Match Routes
 app.use('/api/volunteerMatch', volunteerMatchRoutes);
 
 // Start the server
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
-}); 
+});

@@ -44,8 +44,6 @@ exports.login = async (req, res) => {
     return res.status(500).json({ message: 'Server error' });
   }
 };
-
-
 /*
 import { compare } from 'bcrypt';
 import { sign } from 'jsonwebtoken';

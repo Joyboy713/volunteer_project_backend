@@ -36,6 +36,7 @@ const userSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Pre-save middleware to hash the password before saving the user
+/*
 userSchema.pre('save', async function (next) {
   this.email = this.email.toLowerCase();
   if (!this.isModified('password')) return next();
@@ -43,6 +44,6 @@ userSchema.pre('save', async function (next) {
   this.password = await bcrypt.hash(this.password, salt);
   next();
 });
-
+*/
 const User = mongoose.model('User', userSchema);
 export default User;
