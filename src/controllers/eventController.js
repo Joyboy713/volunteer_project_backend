@@ -23,12 +23,13 @@ export const createEvent = async (req, res) => {
       urgency,
       requiredSkills,
     });
-    await newEvent.save(); // Save the new event to the database
-    res.status(201).json(newEvent); // Return the saved event
+    const savedEvent = await newEvent.save(); // Save the new event to the database
+    res.status(201).json(savedEvent); // Return the saved event
   } catch (error) {
     res.status(500).json({ message: 'Error creating event' });
   }
 };
+
 
 
 // Update an existing event

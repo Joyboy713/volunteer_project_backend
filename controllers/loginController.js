@@ -1,68 +1,100 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const User = require('../models/User');
 
-exports.register = (req, res) => {
-    const { username, password } = req.body;
-    // Hardcoded example - in real setup, you would check against a database
-    const hashedPassword = bcrypt.hashSync(password, 10);
+exports.login = async (req, res) => {
+  const { email, password } = req.body;
 
-    const user = {
-        username,
-        password: hashedPassword,
-    };
+  try {
+    // Normalize email
+    const normalizedEmail = email.trim().toLowerCase();
+    console.log('Received email:', normalizedEmail);
 
-    // Hardcoded response
-    res.status(200).json({ message: 'User registered successfully', user });
-};
-
-exports.login = (req, res) => {
-    const { username, password } = req.body;
-
-    // Hardcoded user check (replace with database logic later)
-    const hardcodedUser = {
-        username: 'testuser',
-        password: bcrypt.hashSync('testpassword', 10), // pre-hashed
-    };
-
-    // Validate user credentials
-    if (username === hardcodedUser.username && bcrypt.compareSync(password, hardcodedUser.password)) {
-        const token = jwt.sign({ username }, 'secretKey', { expiresIn: '1h' });
-        res.status(200).json({ message: 'Login successful', token });
-    } else {
-        res.status(401).json({ message: 'Invalid username or password' });
+    // Find user by email
+    const user = await User.findOne({ email: normalizedEmail });
+    if (!user) {
+      console.error('User not found');
+      return res.status(400).json({ message: 'Invalid email or password' });
     }
+
+    // Compare password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      console.error('Password does not match');
+      return res.status(400).json({ message: 'Invalid email or password' });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    console.log('JWT token generated:', token);
+
+    // Send token and user data
+    return res.status(200).json({
+      token,
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+      },
+    });
+
+  } catch (error) {
+    console.error('Server error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
 };
+
 
 /*
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
+import { compare } from 'bcrypt';
+import { sign } from 'jsonwebtoken';
+import { findOne } from '../models/User';
 
-// Hardcoded user for now (simulating a database)
-const users = [
-    { username: 'testuser', password: bcrypt.hashSync('testpassword', 10) }
-];
+export async function login(req, res) {
+  const { email, password } = req.body;
 
-// Controller for registering a user
-exports.register = (req, res) => {
-    const { username, password } = req.body;
-    const hashedPassword = bcrypt.hashSync(password, 10);
+  try {
+    // Normalize email
+    const normalizedEmail = email.trim().toLowerCase();
+    console.log('Received email:', normalizedEmail);
 
-    const newUser = { username, password: hashedPassword };
-    users.push(newUser);
-
-    res.status(200).json({ message: 'User registered successfully', user: newUser });
-};
-
-// Controller for logging in a user
-exports.login = (req, res) => {
-    const { username, password } = req.body;
-
-    const user = users.find(user => user.username === username);
-    if (user && bcrypt.compareSync(password, user.password)) {
-        const token = jwt.sign({ username }, 'secretKey', { expiresIn: '1h' });
-        return res.status(200).json({ message: 'Login successful', token });
-    } else {
-        return res.status(401).json({ message: 'Invalid username or password' });
+    // Find user by email
+    const user = await findOne({ email: normalizedEmail });
+    if (!user) {
+      console.error('User not found');
+      return res.status(400).json({ message: 'Invalid email or password' });
     }
-};
+
+    console.log('User found:', user.email);
+
+    // Compare password
+    const isMatch = await compare(password, user.password);
+    if (!isMatch) {
+      console.error('Password does not match');
+      return res.status(400).json({ message: 'Invalid email or password' });
+    }
+
+    console.log('Password matched successfully');
+
+    // Generate JWT token
+    const token = sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    console.log('JWT token generated:', token);
+
+    // Send token and user data
+    return res.status(200).json({
+      token,
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+      },
+    });
+
+  } catch (error) {
+    console.error('Server error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+}
 */
