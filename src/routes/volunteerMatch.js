@@ -1,13 +1,19 @@
 import express from 'express';
+import mongoose from 'mongoose'; // Import mongoose
 import User from '../models/User.js';
 import Event from '../models/Event.js';
-import VolunteerHistory from '../models/VolunteerHistory.js'; // Import the VolunteerHistory model
+import VolunteerHistory from '../models/VolunteerHistory.js';
 
 const router = express.Router();
 
-// Fetch matched volunteers for an event with prioritization
+// Fetch matched volunteers for an event with prioritization based on skills and preferences
 router.get('/matchByEvent/:eventId', async (req, res) => {
   const { eventId } = req.params;
+
+  // Validate the eventId
+  if (!mongoose.Types.ObjectId.isValid(eventId)) {
+    return res.status(400).json({ message: 'Invalid event ID' });
+  }
 
   try {
     // Find the event by its ID
@@ -20,16 +26,21 @@ router.get('/matchByEvent/:eventId', async (req, res) => {
     // Extract the required skills for the event
     const { requiredSkills } = event;
 
-    // Find volunteers whose preferences match the event's required skills
+    // Find volunteers whose skills or preferences match the event's required skills
     const matchedVolunteers = await User.find({
-      $or: requiredSkills.map(skill => ({
-        [`volunteeringPreferences.${skill}`]: {
-          $in: ['Would love to!', 'Would like to.', "Wouldn't mind helping."],
-        },
-      })),
+      $or: [
+        // Match based on volunteering preferences
+        ...requiredSkills.map(skill => ({
+          [`volunteeringPreferences.${skill}`]: {
+            $in: ['Would love to!', 'Would like to.', "Wouldn't mind helping."],
+          },
+        })),
+        // Match based on skills array
+        { skills: { $in: requiredSkills } },
+      ],
     });
 
-    // Sort the matched volunteers based on preference priority
+    // Sort the matched volunteers based on preference priority and skills match
     const sortedVolunteers = matchedVolunteers.sort((a, b) => {
       const priority = {
         "Would love to!": 1,
@@ -37,10 +48,23 @@ router.get('/matchByEvent/:eventId', async (req, res) => {
         "Wouldn't mind helping.": 3,
       };
 
-      const aPreference = requiredSkills.map(skill => a.volunteeringPreferences[skill]).sort((x, y) => priority[x] - priority[y])[0];
-      const bPreference = requiredSkills.map(skill => b.volunteeringPreferences[skill]).sort((x, y) => priority[x] - priority[y])[0];
+      // Determine the priority of each volunteer for the event's required skills
+      const aPreference = requiredSkills
+        .map(skill => priority[a.volunteeringPreferences[skill]] || 4)
+        .sort()[0];
+      const bPreference = requiredSkills
+        .map(skill => priority[b.volunteeringPreferences[skill]] || 4)
+        .sort()[0];
 
-      return priority[aPreference] - priority[bPreference];
+      // Determine if the volunteer's skills match the event's required skills
+      const aSkillsMatch = a.skills.some(skill => requiredSkills.includes(skill));
+      const bSkillsMatch = b.skills.some(skill => requiredSkills.includes(skill));
+
+      // Sort by preference priority first, then by skills match
+      if (aPreference === bPreference) {
+        return bSkillsMatch - aSkillsMatch; // If preferences are equal, prioritize based on skills match
+      }
+      return aPreference - bPreference; // Otherwise, sort by preference priority
     });
 
     res.status(200).json(sortedVolunteers);
@@ -52,7 +76,12 @@ router.get('/matchByEvent/:eventId', async (req, res) => {
 
 // Save a volunteer-event match with prioritization
 router.post('/saveMatch', async (req, res) => {
-  const { eventId, volunteerIds } = req.body; // Expect an array of volunteer IDs
+  const { eventId, volunteerIds } = req.body;
+
+  // Validate the eventId
+  if (!mongoose.Types.ObjectId.isValid(eventId)) {
+    return res.status(400).json({ message: 'Invalid event ID' });
+  }
 
   try {
     // Find the event by its ID
@@ -73,10 +102,15 @@ router.post('/saveMatch', async (req, res) => {
         "Wouldn't mind helping.": 3,
       };
 
-      const aPreference = event.requiredSkills.map(skill => a.volunteeringPreferences[skill]).sort((x, y) => priority[x] - priority[y])[0];
-      const bPreference = event.requiredSkills.map(skill => b.volunteeringPreferences[skill]).sort((x, y) => priority[x] - priority[y])[0];
+      const aPreference = event.requiredSkills
+        .map(skill => priority[a.volunteeringPreferences[skill]] || 4)
+        .sort()[0];
+      const bPreference = event.requiredSkills
+        .map(skill => priority[b.volunteeringPreferences[skill]] || 4)
+        .sort()[0];
 
-      return priority[aPreference] - priority[bPreference];
+      // Sort volunteers by their highest preference
+      return aPreference - bPreference;
     });
 
     // Save the sorted matched volunteers into the VolunteerHistory collection
