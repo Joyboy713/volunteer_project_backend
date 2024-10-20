@@ -30,7 +30,7 @@ describe('Event Controller', () => {
         urgency: 'High',
         requiredSkills: ['Skill 1'],
       };
-      
+
       // Mock the save method of the Event schema
       Event.prototype.save.mockResolvedValue(mockEvent);
 
