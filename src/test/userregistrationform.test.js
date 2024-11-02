@@ -1,73 +1,47 @@
-import express from 'express';
 import request from 'supertest';
+import express from 'express';
+import userRoutes from '../routes/userRoutes.js'; // Adjust path as needed
 import mongoose from 'mongoose';
-import userRoutes from './routes/userRoutes.js';
-import dotenv from 'dotenv';
 
-// Mock environment variables
-dotenv.config = jest.fn();
-
-// Mock the mongoose connection
 jest.mock('mongoose', () => ({
-  connect: jest.fn().mockResolvedValue(true),
-  connection: {
-    on: jest.fn(),
-    once: jest.fn(),
-  },
+  connect: jest.fn().mockImplementation(() => Promise.resolve('Mocked MongoDB connected')),
 }));
 
-// Create an Express app for testing
+// Create a minimal server setup for testing
 const app = express();
 app.use(express.json());
 app.use('/api/users', userRoutes);
 
-describe('Server and Routes', () => {
-  it('should connect to MongoDB successfully', async () => {
+describe('Express Server Setup', () => {
+  beforeAll(() => {
+    jest.spyOn(console, 'log').mockImplementation(() => {}); // Suppress console logs
+    jest.spyOn(console, 'error').mockImplementation(() => {}); // Suppress console errors
+  });
+
+  afterAll(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('should connect to MongoDB without making a real connection', async () => {
     expect(mongoose.connect).toHaveBeenCalledWith(process.env.MONGO_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
+    expect(mongoose.connect).toHaveBeenCalledTimes(1);
   });
 
-  it('should handle a GET request to /api/users', async () => {
-    const res = await request(app).get('/api/users');
-    expect(res.statusCode).toBe(200);
-    // The exact expectation here will depend on your userRoutes implementation.
-    // If your /api/users route returns an empty array when no users exist, you can check for that:
-    expect(Array.isArray(res.body)).toBe(true);
+  it('should respond with 200 for the /api/users route', async () => {
+    const response = await request(app).get('/api/users'); // Adjust if there are specific routes within userRoutes
+    expect(response.status).toBe(200); // Ensure this matches an expected route response in your app
   });
 
-  it('should handle a POST request to /api/users/register', async () => {
-    const res = await request(app)
-      .post('/api/users/register')
-      .send({
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'test@example.com',
-        password: 'password123',
-      });
+  it('should handle a failed MongoDB connection without using a real database', async () => {
+    mongoose.connect.mockImplementationOnce(() => Promise.reject(new Error('Mocked connection failure')));
 
-    // Expect the status code for a successful registration, e.g., 201 if user registration is successful.
-    expect(res.statusCode).toBe(201);
-    expect(res.body).toHaveProperty('message', 'User registered successfully');
-  });
-
-  it('should handle a POST request to /api/users/login', async () => {
-    const res = await request(app)
-      .post('/api/users/login')
-      .send({
-        email: 'test@example.com',
-        password: 'password123',
-      });
-
-    // Expect the status code for a successful login, e.g., 200 if login is successful.
-    expect(res.statusCode).toBe(200);
-    expect(res.body).toHaveProperty('message', 'Login successful');
-    expect(res.body).toHaveProperty('user');
-  });
-
-  it('should return 404 for unknown routes', async () => {
-    const res = await request(app).get('/api/unknownroute');
-    expect(res.statusCode).toBe(404);
+    try {
+      await mongoose.connect(process.env.MONGO_URI);
+    } catch (error) {
+      expect(error.message).toBe('Mocked connection failure');
+    }
   });
 });

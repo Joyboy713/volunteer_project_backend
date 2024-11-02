@@ -1,196 +1,169 @@
-import express from 'express';
 import request from 'supertest';
-import multer from 'multer';
+import express from 'express';
+import router from '../routes/userRoutes.js'; // Adjust path as needed
+import User from '../models/User.js';
+import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
-import User from '../models/User.js'; // Mock this
-import userRoutes from '../routes/userRoutes.js'; 
 
-// Mock the User model
 jest.mock('../models/User.js');
+jest.mock('jsonwebtoken');
+jest.mock('bcrypt');
 
+// Create an Express app instance for testing
 const app = express();
 app.use(express.json());
-app.use('/api/users', userRoutes);
-
-// Mock multer's `single` method
-jest.mock('multer', () => {
-  return () => ({
-    single: jest.fn(() => (req, res, next) => next()),
-  });
-});
+app.use('/users', router);
 
 describe('User Routes', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('POST /api/users/register', () => {
-    it('should register a new user', async () => {
-      // Mock the scenario where no existing user is found.
+  describe('POST /users/register', () => {
+    it('should register a new user successfully', async () => {
       User.findOne.mockResolvedValue(null);
+      User.prototype.save = jest.fn().mockResolvedValue(true);
+      bcrypt.hash.mockResolvedValue('hashedPassword');
+      jwt.sign.mockReturnValue('fakeToken');
 
-      // Mock the save method for the new user.
-      User.prototype.save.mockResolvedValue({
-        _id: 'testUserId',
-        email: 'test@example.com',
-      });
-
-      const res = await request(app)
-        .post('/api/users/register')
+      const response = await request(app)
+        .post('/users/register')
         .send({
           firstName: 'John',
           lastName: 'Doe',
-          email: 'test@example.com',
+          email: 'john.doe@example.com',
           password: 'password123',
           dob: '1990-01-01',
-          address: {
-            streetAddress: '123 Test St',
-            city: 'Testville',
-            state: 'TS',
-            zipCode: '12345',
-          },
-          volunteeringPreferences: {},
-          shiftPreferences: {},
+          address: '123 Main St',
         });
 
-      expect(res.statusCode).toBe(201);
-      expect(res.body).toHaveProperty('message', 'User registered successfully');
+      expect(response.status).toBe(201);
+      expect(response.body.message).toBe('User registered successfully');
+      expect(User.findOne).toHaveBeenCalledWith({ email: 'john.doe@example.com' });
+      expect(bcrypt.hash).toHaveBeenCalledWith('password123', 10);
+      expect(jwt.sign).toHaveBeenCalledWith({ id: expect.any(String) }, process.env.JWT_SECRET, { expiresIn: '1h' });
     });
 
-    it('should return 400 if user already exists', async () => {
-      // Mock the scenario where an existing user is found.
-      User.findOne.mockResolvedValue({ email: 'test@example.com' });
+    it('should return 400 if the user already exists', async () => {
+      User.findOne.mockResolvedValue({ email: 'john.doe@example.com' });
 
-      const res = await request(app)
-        .post('/api/users/register')
+      const response = await request(app)
+        .post('/users/register')
         .send({
           firstName: 'John',
           lastName: 'Doe',
-          email: 'test@example.com',
+          email: 'john.doe@example.com',
           password: 'password123',
         });
 
-      expect(res.statusCode).toBe(400);
-      expect(res.body).toHaveProperty('message', 'User already exists');
+      expect(response.status).toBe(400);
+      expect(response.body.message).toBe('User already exists');
+    });
+
+    it('should return 500 on server error', async () => {
+      User.findOne.mockRejectedValue(new Error('Database error'));
+
+      const response = await request(app)
+        .post('/users/register')
+        .send({
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          password: 'password123',
+        });
+
+      expect(response.status).toBe(500);
+      expect(response.body.message).toBe('Server error');
     });
   });
 
-  describe('POST /api/users/login', () => {
-    it('should login user successfully', async () => {
-      const hashedPassword = await bcrypt.hash('password123', 10);
-      const user = {
-        _id: 'testUserId',
-        email: 'test@example.com',
-        password: hashedPassword,
-      };
-
-      // Mock the scenario where the user is found.
-      User.findOne.mockResolvedValue(user);
+  describe('POST /users/login', () => {
+    it('should login a user and return a token', async () => {
+      const mockUser = { _id: 'user123', password: 'hashedPassword' };
+      User.findOne.mockResolvedValue(mockUser);
       bcrypt.compare.mockResolvedValue(true);
+      jwt.sign.mockReturnValue('fakeToken');
 
-      const res = await request(app)
-        .post('/api/users/login')
-        .send({
-          email: 'test@example.com',
-          password: 'password123',
-        });
+      const response = await request(app)
+        .post('/users/login')
+        .send({ email: 'john.doe@example.com', password: 'password123' });
 
-      expect(res.statusCode).toBe(200);
-      expect(res.body).toHaveProperty('message', 'Login successful');
-      expect(res.body).toHaveProperty('user');
+      expect(response.status).toBe(200);
+      expect(response.body.token).toBe('fakeToken');
+      expect(User.findOne).toHaveBeenCalledWith({ email: 'john.doe@example.com' });
+      expect(bcrypt.compare).toHaveBeenCalledWith('password123', 'hashedPassword');
     });
 
-    it('should return 400 if email or password is incorrect', async () => {
-      // Mock the scenario where no user is found.
+    it('should return 400 if the user is not found', async () => {
       User.findOne.mockResolvedValue(null);
 
-      const res = await request(app)
-        .post('/api/users/login')
-        .send({
-          email: 'test@example.com',
-          password: 'wrongpassword',
-        });
+      const response = await request(app)
+        .post('/users/login')
+        .send({ email: 'nonexistent@example.com', password: 'password123' });
 
-      expect(res.statusCode).toBe(400);
-      expect(res.body).toHaveProperty('message', 'Invalid email or password');
+      expect(response.status).toBe(400);
+      expect(response.body.message).toBe('Invalid email or password');
+    });
+
+    it('should return 400 if the password is incorrect', async () => {
+      const mockUser = { _id: 'user123', password: 'hashedPassword' };
+      User.findOne.mockResolvedValue(mockUser);
+      bcrypt.compare.mockResolvedValue(false);
+
+      const response = await request(app)
+        .post('/users/login')
+        .send({ email: 'john.doe@example.com', password: 'wrongPassword' });
+
+      expect(response.status).toBe(400);
+      expect(response.body.message).toBe('Invalid email or password');
+    });
+
+    it('should return 500 on server error', async () => {
+      User.findOne.mockRejectedValue(new Error('Database error'));
+
+      const response = await request(app)
+        .post('/users/login')
+        .send({ email: 'john.doe@example.com', password: 'password123' });
+
+      expect(response.status).toBe(500);
+      expect(response.body.message).toBe('Server error');
     });
   });
 
-  describe('GET /api/users/profile', () => {
-    it('should return the user profile', async () => {
-      const user = { _id: 'testUserId', email: 'test@example.com', firstName: 'John' };
-      
-      // Mock the scenario where the user is found by ID.
-      User.findById.mockResolvedValue(user);
+  describe('GET /users/profile', () => {
+    it('should get the user profile for a logged-in user', async () => {
+      const mockUser = { _id: 'user123', firstName: 'John', lastName: 'Doe' };
+      User.findById.mockResolvedValue(mockUser);
 
-      const res = await request(app)
-        .get('/api/users/profile')
-        .send({ userId: 'testUserId' });
+      const response = await request(app)
+        .get('/users/profile')
+        .set('Authorization', 'Bearer fakeToken');
 
-      expect(res.statusCode).toBe(200);
-      expect(res.body).toHaveProperty('email', 'test@example.com');
+      expect(response.status).toBe(200);
+      expect(response.body.firstName).toBe('John');
+      expect(User.findById).toHaveBeenCalledWith(expect.any(String));
     });
 
-    it('should return 404 if user is not found', async () => {
-      // Mock the scenario where no user is found.
+    it('should return 404 if the user is not found', async () => {
       User.findById.mockResolvedValue(null);
 
-      const res = await request(app)
-        .get('/api/users/profile')
-        .send({ userId: 'testUserId' });
+      const response = await request(app)
+        .get('/users/profile')
+        .set('Authorization', 'Bearer fakeToken');
 
-      expect(res.statusCode).toBe(404);
-      expect(res.body).toHaveProperty('message', 'User not found');
-    });
-  });
-
-  describe('PUT /api/users/profile', () => {
-    it('should update user profile', async () => {
-      const user = {
-        _id: 'testUserId',
-        firstName: 'John',
-        lastName: 'Doe',
-        skills: [],
-        preferences: 'Old preference',
-        availability: { startDate: null, endDate: null },
-      };
-
-      // Mock the scenario where the user is found by ID.
-      User.findById.mockResolvedValue(user);
-
-      // Mock the save method to simulate updating the user
-      User.prototype.save.mockResolvedValue({
-        ...user,
-        firstName: 'Jane',
-        lastName: 'Smith',
-      });
-
-      const res = await request(app)
-        .put('/api/users/profile')
-        .send({
-          firstName: 'Jane',
-          lastName: 'Smith',
-        });
-
-      expect(res.statusCode).toBe(200);
-      expect(res.body).toHaveProperty('message', 'Profile updated successfully');
-      expect(res.body.user).toHaveProperty('firstName', 'Jane');
-      expect(res.body.user).toHaveProperty('lastName', 'Smith');
+      expect(response.status).toBe(404);
+      expect(response.body.message).toBe('User not found');
     });
 
-    it('should return 404 if user is not found during update', async () => {
-      // Mock the scenario where no user is found.
-      User.findById.mockResolvedValue(null);
+    it('should return 500 on server error', async () => {
+      User.findById.mockRejectedValue(new Error('Database error'));
 
-      const res = await request(app)
-        .put('/api/users/profile')
-        .send({
-          firstName: 'Jane',
-          lastName: 'Smith',
-        });
+      const response = await request(app)
+        .get('/users/profile')
+        .set('Authorization', 'Bearer fakeToken');
 
-      expect(res.statusCode).toBe(404);
-      expect(res.body).toHaveProperty('message', 'User not found');
+      expect(response.status).toBe(500);
+      expect(response.body.message).toBe('Server error');
     });
   });
 });

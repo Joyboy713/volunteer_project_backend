@@ -1,77 +1,69 @@
-// ./tests/login.test.js
 import request from 'supertest';
 import express from 'express';
-import User from '../src/models/User.js'; // Adjust path as necessary
-import loginRoute from '../src/routes/login.js'; // Adjust path as necessary
+import router from '../routes/login.js'; 
+import User from '../models/User.js';
 
-// Mock the User model
-jest.mock('../src/models/User.js');
+jest.mock('../models/User.js'); // Mocking User model
 
+// Create an Express app instance for testing
 const app = express();
 app.use(express.json());
-app.use('/api/login', loginRoute);
+app.use('/login', router);
 
-describe('POST /api/login', () => {
-  afterEach(() => {
+describe('Login Routes', () => {
+  beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('should return 400 if the user is not found', async () => {
-    // Mock User.findOne to return null (user not found)
-    User.findOne.mockResolvedValue(null);
+  describe('POST /login', () => {
+    it('should return 400 if the email is not found', async () => {
+      User.findOne.mockResolvedValue(null);
 
-    const response = await request(app)
-      .post('/api/login')
-      .send({ email: 'test@example.com', password: 'password123' });
+      const response = await request(app)
+        .post('/login')
+        .send({ email: 'nonexistent@example.com', password: 'password123' });
 
-    expect(response.status).toBe(400);
-    expect(response.body.message).toBe('Email not found');
-  });
-  it('should return 400 if the password is incorrect', async () => {
-    // Mock User.findOne to return a user
-    User.findOne.mockResolvedValue({
-      email: 'test@example.com',
-      password: 'password123', // Mock user with password (in this case, it's plain text)
+      expect(response.status).toBe(400);
+      expect(response.body.message).toBe('Email not found');
+      expect(User.findOne).toHaveBeenCalledWith({ email: 'nonexistent@example.com' });
     });
 
-    const response = await request(app)
-      .post('/api/login')
-      .send({ email: 'test@example.com', password: 'wrongpassword' });
+    it('should return 400 if the password does not match', async () => {
+      const mockUser = { _id: 'user123', email: 'user@example.com', password: 'hashedPassword' };
+      User.findOne.mockResolvedValue(mockUser);
 
-    expect(response.status).toBe(400);
-    expect(response.body.message).toBe('Wrong password');
-  });
+      const response = await request(app)
+        .post('/login')
+        .send({ email: 'user@example.com', password: 'wrongPassword' });
 
-  it('should return 200 and login the user if the credentials are correct', async () => {
-    // Mock User.findOne to return a valid user
-    User.findOne.mockResolvedValue({
-      _id: 'userId123',
-      email: 'test@example.com',
-      password: 'password123', // In real life, this would be hashed, but we're mocking
+      expect(response.status).toBe(400);
+      expect(response.body.message).toBe('Wrong password');
+      expect(User.findOne).toHaveBeenCalledWith({ email: 'user@example.com' });
     });
 
-    const response = await request(app)
-      .post('/api/login')
-      .send({ email: 'test@example.com', password: 'password123' });
+    it('should return 200 and the user data for a successful login', async () => {
+      const mockUser = { _id: 'user123', email: 'user@example.com', password: 'password123' };
+      User.findOne.mockResolvedValue(mockUser);
 
-    expect(response.status).toBe(200);
-    expect(response.body.message).toBe('Login successful');
-    expect(response.body.user).toEqual({
-      _id: 'userId123',
-      email: 'test@example.com',
-      password: 'password123',
+      const response = await request(app)
+        .post('/login')
+        .send({ email: 'user@example.com', password: 'password123' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.message).toBe('Login successful');
+      expect(response.body.user.email).toBe('user@example.com');
+      expect(User.findOne).toHaveBeenCalledWith({ email: 'user@example.com' });
     });
-  });
 
-  it('should return 500 if there is a server error', async () => {
-    // Mock User.findOne to throw an error
-    User.findOne.mockRejectedValue(new Error('Database error'));
+    it('should return 500 if a server error occurs', async () => {
+      User.findOne.mockRejectedValue(new Error('Database error'));
 
-    const response = await request(app)
-      .post('/api/login')
-      .send({ email: 'test@example.com', password: 'password123' });
+      const response = await request(app)
+        .post('/login')
+        .send({ email: 'user@example.com', password: 'password123' });
 
-    expect(response.status).toBe(500);
-    expect(response.body.message).toBe('Server error');
+      expect(response.status).toBe(500);
+      expect(response.body.message).toBe('Server error');
+    });
   });
 });

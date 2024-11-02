@@ -6,12 +6,15 @@ import VolunteerHistory from '../models/VolunteerHistory.js';
 
 const router = express.Router();
 
-// Fetch matched volunteers for an event with prioritization based on skills and preferences
+// Helper function to check for valid 24-character ObjectId
+const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id) && mongoose.Types.ObjectId.isValid(id);
+
+// Fetch matched volunteers for an event with prioritization based on skills, preferences, and availability
 router.get('/matchByEvent/:eventId', async (req, res) => {
   const { eventId } = req.params;
 
-  // Validate the eventId
-  if (!mongoose.Types.ObjectId.isValid(eventId)) {
+  // Validate the eventId strictly
+  if (!isValidObjectId(eventId)) {
     return res.status(400).json({ message: 'Invalid event ID' });
   }
 
@@ -23,11 +26,13 @@ router.get('/matchByEvent/:eventId', async (req, res) => {
       return res.status(404).json({ message: 'Event not found' });
     }
 
-    // Extract the required skills for the event
-    const { requiredSkills } = event;
+    // Extract the required skills and event date
+    const { requiredSkills, eventDate } = event;
 
-    // Find volunteers whose skills or preferences match the event's required skills
-    const matchedVolunteers = await User.find({
+    // Find volunteers whose skills or preferences match the event's required skills and are available for the event date
+const matchedVolunteers = await User.find({
+  $and: [
+    {
       $or: [
         // Match based on volunteering preferences
         ...requiredSkills.map(skill => ({
@@ -38,7 +43,15 @@ router.get('/matchByEvent/:eventId', async (req, res) => {
         // Match based on skills array
         { skills: { $in: requiredSkills } },
       ],
-    });
+    },
+    // Ensure the user is strictly available for the event date
+    {
+      'availability.startDate': { $lte: eventDate },
+      'availability.endDate': { $gte: eventDate },
+    },
+  ],
+});
+
 
     // Sort the matched volunteers based on preference priority and skills match
     const sortedVolunteers = matchedVolunteers.sort((a, b) => {
@@ -79,7 +92,7 @@ router.post('/saveMatch', async (req, res) => {
   const { eventId, volunteerIds } = req.body;
 
   // Validate the eventId
-  if (!mongoose.Types.ObjectId.isValid(eventId)) {
+  if (!isValidObjectId(eventId)) {
     return res.status(400).json({ message: 'Invalid event ID' });
   }
 

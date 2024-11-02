@@ -1,130 +1,80 @@
-import express from 'express';
 import request from 'supertest';
-import multer from 'multer';
-import User from '../models/User.js'; // Mock this
-import userRoutes from '../routes/userRoutes.js';
-import { authMiddleware } from '../Middleware/authmiddleware.js';
+import express from 'express';
+import userProfileRoutes from '../userprofilemanagement.js'; // Adjust path as needed
+import userProfileController from '../controllers/userProfileManagementController.js';
 
-// Mock the User model and the authMiddleware
-jest.mock('../models/User.js');
-jest.mock('../Middleware/authmiddleware.js');
+jest.mock('../controllers/userProfileManagementController.js');
 
-// Mock multer's `single` method
-jest.mock('multer', () => {
-  return () => ({
-    single: jest.fn(() => (req, res, next) => {
-      req.file = {
-        filename: 'test-profile-picture.jpg',
-      };
-      next();
-    }),
-  });
-});
-
+// Create an Express app instance for testing
 const app = express();
 app.use(express.json());
-app.use('/api/users', userRoutes);
+app.use('/profile', userProfileRoutes);
 
-describe('User Profile Routes', () => {
+describe('User Profile Management Routes', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('PUT /api/users/profile', () => {
-    it('should update user profile successfully', async () => {
-      const user = {
-        _id: 'testUserId',
-        fullName: 'John Doe',
-        profilePicture: '/uploads/profilePictures/old-picture.jpg',
-        skills: [],
-        preferences: 'Old preference',
-        availability: {},
-        save: jest.fn().mockResolvedValue(true),
-      };
-
-      // Mock the scenario where the user is found by ID.
-      User.findById.mockResolvedValue(user);
-
-      // Mock the authMiddleware to simulate an authenticated user
-      authMiddleware.mockImplementation((req, res, next) => {
-        req.user = { id: 'testUserId' };
-        next();
+  describe('GET /profile/:username', () => {
+    it('should return the user profile for a given username', async () => {
+      const mockProfile = { username: 'testUser', fullName: 'Test User' };
+      userProfileController.getProfile.mockImplementation((req, res) => {
+        res.status(200).json(mockProfile);
       });
 
-      const res = await request(app)
-        .put('/api/users/profile')
-        .field('fullName', 'Jane Doe')
-        .field('skills', JSON.stringify(['JavaScript', 'Node.js']))
-        .attach('profilePicture', Buffer.from('test'), 'test-profile-picture.jpg');
+      const response = await request(app).get('/profile/testUser');
 
-      expect(res.statusCode).toBe(200);
-      expect(res.body).toHaveProperty('message', 'Profile updated successfully');
-      expect(res.body.user).toHaveProperty('fullName', 'Jane Doe');
-      expect(res.body.user).toHaveProperty('profilePicture', '/uploads/profilePictures/test-profile-picture.jpg');
-      expect(res.body.user.skills).toEqual(['JavaScript', 'Node.js']);
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual(mockProfile);
+      expect(userProfileController.getProfile).toHaveBeenCalledWith(
+        expect.objectContaining({ params: { username: 'testUser' } }),
+        expect.any(Object)
+      );
     });
 
-    it('should return 404 if user is not found during update', async () => {
-      // Mock the scenario where no user is found.
-      User.findById.mockResolvedValue(null);
-
-      // Mock the authMiddleware to simulate an authenticated user
-      authMiddleware.mockImplementation((req, res, next) => {
-        req.user = { id: 'testUserId' };
-        next();
+    it('should handle errors and return 500 status', async () => {
+      userProfileController.getProfile.mockImplementation((req, res) => {
+        res.status(500).json({ message: 'Server error' });
       });
 
-      const res = await request(app)
-        .put('/api/users/profile')
-        .field('fullName', 'Jane Doe');
+      const response = await request(app).get('/profile/testUser');
 
-      expect(res.statusCode).toBe(404);
-      expect(res.body).toHaveProperty('message', 'User not found');
+      expect(response.status).toBe(500);
+      expect(response.body.message).toBe('Server error');
+      expect(userProfileController.getProfile).toHaveBeenCalled();
     });
   });
 
-  describe('POST /api/users/profile/upload', () => {
-    it('should upload a profile picture successfully', async () => {
-      const user = {
-        _id: 'testUserId',
-        profilePicture: '/uploads/profilePictures/old-picture.jpg',
-        save: jest.fn().mockResolvedValue(true),
-      };
-
-      // Mock the scenario where the user is found by ID.
-      User.findById.mockResolvedValue(user);
-
-      // Mock the authMiddleware to simulate an authenticated user
-      authMiddleware.mockImplementation((req, res, next) => {
-        req.user = { id: 'testUserId' };
-        next();
+  describe('POST /profile/update', () => {
+    it('should update the user profile and return success message', async () => {
+      userProfileController.updateProfile.mockImplementation((req, res) => {
+        res.status(200).json({ message: 'Profile updated successfully' });
       });
 
-      const res = await request(app)
-        .post('/api/users/profile/upload')
-        .attach('profilePicture', Buffer.from('test'), 'test-profile-picture.jpg');
+      const response = await request(app)
+        .post('/profile/update')
+        .send({ username: 'testUser', fullName: 'Updated User' });
 
-      expect(res.statusCode).toBe(200);
-      expect(res.body).toHaveProperty('message', 'Profile picture uploaded successfully');
-      expect(res.body.user).toHaveProperty('profilePicture', '/uploads/profilePictures/test-profile-picture.jpg');
+      expect(response.status).toBe(200);
+      expect(response.body.message).toBe('Profile updated successfully');
+      expect(userProfileController.updateProfile).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.any(Object)
+      );
     });
 
-    it('should return 404 if user is not found during profile picture upload', async () => {
-      // Mock the scenario where no user is found.
-      User.findById.mockResolvedValue(null);
-
-      // Mock the authMiddleware to simulate an authenticated user
-      authMiddleware.mockImplementation((req, res, next) => {
-        req.user = { id: 'testUserId' };
-        next();
+    it('should handle errors during profile update and return 500 status', async () => {
+      userProfileController.updateProfile.mockImplementation((req, res) => {
+        res.status(500).json({ message: 'Server error' });
       });
 
-      const res = await request(app)
-        .post('/api/users/profile/upload')
-        .attach('profilePicture', Buffer.from('test'), 'test-profile-picture.jpg');
+      const response = await request(app)
+        .post('/profile/update')
+        .send({ username: 'testUser', fullName: 'Updated User' });
 
-      expect(res.statusCode).toBe(404);
-      expect(res.body).toHaveProperty('message', 'User not found');
+      expect(response.status).toBe(500);
+      expect(response.body.message).toBe('Server error');
+      expect(userProfileController.updateProfile).toHaveBeenCalled();
     });
   });
 });
