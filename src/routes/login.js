@@ -7,48 +7,44 @@ const router = express.Router();
 
 // User login route
 router.post('/', async (req, res) => {
-  console.log('Received login request:', req.body);
-
   const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ message: 'Email and password are required' });
+  }
 
   try {
     // Check if user exists
     const user = await User.findOne({ email });
     if (!user) {
-      console.error('User not found for email:', email);
       return res.status(400).json({ message: 'Email not found' });
     }
 
-    console.log('User found:', user);
-
-    //Check if password matches
-    //const isMatch = await bcrypt.compare(password, user.password);
-    if (password != user.password) {
-      console.error('Password does not match for email:', email);
-      return res.status(400).json({ message: 'Wrong password' });
+    // Compare passwords (hash match)
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Incorrect password' });
     }
 
-    console.log('Password match successful');
-    user.email = email;
+    // Generate JWT token
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: '1h',
+    });
 
-    // Send success response
     res.json({
-      message: 'Login successful', user
-      /*
+      message: 'Login successful',
+      token,
       user: {
         id: user._id,
+        email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
-        email: user.email,
-       
-      },*/
+      },
     });
-    
   } catch (error) {
-    console.error('Server error during login:', error);
-    res.status(500).json({ message: 'Server error' });u
+    console.error('Login error:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
-//module.exports = router;
 export default router;
