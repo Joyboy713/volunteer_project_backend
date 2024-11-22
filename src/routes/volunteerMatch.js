@@ -3,6 +3,7 @@ import mongoose from 'mongoose'; // Import mongoose
 import User from '../models/User.js';
 import Event from '../models/Event.js';
 import VolunteerHistory from '../models/VolunteerHistory.js';
+import Notification from '../models/NotificationModel.js'; // Import Notification model
 
 const router = express.Router();
 
@@ -30,28 +31,27 @@ router.get('/matchByEvent/:eventId', async (req, res) => {
     const { requiredSkills, eventDate } = event;
 
     // Find volunteers whose skills or preferences match the event's required skills and are available for the event date
-const matchedVolunteers = await User.find({
-  $and: [
-    {
-      $or: [
-        // Match based on volunteering preferences
-        ...requiredSkills.map(skill => ({
-          [`volunteeringPreferences.${skill}`]: {
-            $in: ['Would love to!', 'Would like to.', "Wouldn't mind helping."],
-          },
-        })),
-        // Match based on skills array
-        { skills: { $in: requiredSkills } },
+    const matchedVolunteers = await User.find({
+      $and: [
+        {
+          $or: [
+            // Match based on volunteering preferences
+            ...requiredSkills.map(skill => ({
+              [`volunteeringPreferences.${skill}`]: {
+                $in: ['Would love to!', 'Would like to.', "Wouldn't mind helping."],
+              },
+            })),
+            // Match based on skills array
+            { skills: { $in: requiredSkills } },
+          ],
+        },
+        // Ensure the user is strictly available for the event date
+        {
+          'availability.startDate': { $lte: eventDate },
+          'availability.endDate': { $gte: eventDate },
+        },
       ],
-    },
-    // Ensure the user is strictly available for the event date
-    {
-      'availability.startDate': { $lte: eventDate },
-      'availability.endDate': { $gte: eventDate },
-    },
-  ],
-});
-
+    });
 
     // Sort the matched volunteers based on preference priority and skills match
     const sortedVolunteers = matchedVolunteers.sort((a, b) => {
@@ -87,7 +87,7 @@ const matchedVolunteers = await User.find({
   }
 });
 
-// Save a volunteer-event match with prioritization
+// Save a volunteer-event match with prioritization and notifications
 router.post('/saveMatch', async (req, res) => {
   const { eventId, volunteerIds } = req.body;
 
@@ -126,9 +126,10 @@ router.post('/saveMatch', async (req, res) => {
       return aPreference - bPreference;
     });
 
-    // Save the sorted matched volunteers into the VolunteerHistory collection
+    // Save the sorted matched volunteers into the VolunteerHistory collection and create notifications
     const savedMatches = await Promise.all(
       sortedVolunteers.map(async (volunteer) => {
+        // Save volunteer history
         const newMatch = new VolunteerHistory({
           volunteerId: volunteer._id,
           eventId,
@@ -141,12 +142,31 @@ router.post('/saveMatch', async (req, res) => {
           matchDate: new Date(),
         });
 
-        return newMatch.save();
+        await newMatch.save();
+
+        // Create a notification for the matched volunteer
+        const notification = new Notification({
+          userId: volunteer._id,
+          title: `Assigned to Event: ${event.eventName}`,
+          message: `You have been assigned to '${event.eventName}' on ${new Date(
+            event.eventDate
+          ).toLocaleDateString()}. Please confirm your participation.`,
+          eventId: event._id,
+        });
+
+        try {
+          await notification.save();
+          console.log('Notification saved:', notification);
+        } catch (error) {
+          console.error('Error saving notification for volunteer:', volunteer._id, error);
+        }
+
+        return newMatch;
       })
     );
 
     res.status(201).json({
-      message: 'Volunteers matched, prioritized, and saved to the history successfully!',
+      message: 'Volunteers matched, prioritized, and notified successfully!',
       matches: savedMatches,
     });
   } catch (error) {

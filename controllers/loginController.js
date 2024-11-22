@@ -6,6 +6,12 @@ exports.login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
+    // Validate input
+    if (!email || !password) {
+      console.error('Email or password not provided');
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
+
     // Normalize email
     const normalizedEmail = email.trim().toLowerCase();
     console.log('Received email:', normalizedEmail);
@@ -24,6 +30,12 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
+    // Ensure JWT_SECRET is set
+    if (!process.env.JWT_SECRET) {
+      console.error('JWT_SECRET is not defined in environment variables');
+      return res.status(500).json({ message: 'Server configuration error' });
+    }
+
     // Generate JWT token
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
     console.log('JWT token generated:', token);
@@ -40,10 +52,11 @@ exports.login = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Server error:', error);
+    console.error('Server error:', error.message);
     return res.status(500).json({ message: 'Server error' });
   }
 };
+
 /*
 import { compare } from 'bcrypt';
 import { sign } from 'jsonwebtoken';
