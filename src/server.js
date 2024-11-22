@@ -3,11 +3,12 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import userRoutes from './routes/userRoutes.js';
-import notificationRoutes from './routes/notificationRoute.js'; // Example routes
+import notificationRoutes from './routes/notificationRoute.js'; 
 import volunteerHistoryRoutes from './routes/volunteerHistory.js'; 
 import eventRoutes from './routes/eventRoutes.js';
 import volunteerMatchRoutes from './routes/volunteerMatch.js';
 import login from './routes/login.js';
+import reportsRoute from './routes/reportsRoute.js'; // Report routes
 
 dotenv.config(); // Load environment variables
 
@@ -52,6 +53,9 @@ app.use('/api/users/login', login);
 
 // Volunteer Match Routes
 app.use('/api/volunteerMatch', volunteerMatchRoutes);
+
+// Reports route
+app.use('/api/reports', reportsRoute); 
 
 // Start the server
 app.listen(port, () => {
